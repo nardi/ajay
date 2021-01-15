@@ -17,7 +17,15 @@ async def run_agent(name, port, func):
     inbox.bind(f"tcp://*:{port}")
 
     print(f"-{name}-  Starting agent")
-    await func(inbox)
+    async for action in func(inbox):
+        if action != None:
+            print(f"-{name}-  Executing send action")
+            send_port, message = action
+            print(f"-{name}-  Connecting to other agent...")
+            outbox = await connect_agent(send_port)
+            print(f"-{name}-  Sending message")
+            await outbox.send(message)
+    print(f"-{name}-  Agent finished")
 
 async def connect_agent(port):
     outbox = context.socket(PUSH)
@@ -29,13 +37,11 @@ async def sender(inbox):
     
     await sleep(1)
 
-    print("-S-  Connecting to other agent...")
-    outbox = await connect_agent(receiver_port)
-
     print("-S-  Sending message")
-    await outbox.send(b"Hello")
+    yield (receiver_port, b"Hello")
 
     print("-S-  Done")
+    yield
 
 async def receiver(inbox):
     print("-R-  Started")
@@ -45,6 +51,7 @@ async def receiver(inbox):
     print("-R-  Received message: %s" % message)
 
     print("-R-  Done")
+    yield
 
 async def main():
     await gather(
