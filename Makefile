@@ -8,6 +8,6 @@ freeze:
 	pip freeze --exclude wincertstore --exclude certifi > requirements.txt
 
 test:
-	pytest tests
+	pytest -s tests
 
 .PHONY: none init freeze test
