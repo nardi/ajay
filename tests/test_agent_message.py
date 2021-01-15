@@ -3,15 +3,16 @@ import pytest
 
 from ajay import run_agent, PrintAction as print, SendAction as send
 
-from asyncio import run, gather, sleep
+from asyncio import gather, sleep
 
 async def receiver(inbox):
     yield print("Started")
 
     yield print("Waiting for message")
-    message = await inbox.recv()
-    yield print(f"Received message: {message}")
-    assert message == b"Hello"
+    async for message in inbox:
+        yield print(f"Received message: {message}")
+        assert message == b"Hello"
+        break
 
     yield print("Done")
 
