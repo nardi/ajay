@@ -2,6 +2,16 @@ import sys, asyncio
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+# Action types.
+from collections import namedtuple
+
+PrintAction = namedtuple("PrintAction", ["text"])
+SendAction = namedtuple("SendAction", ["to", "message"])
+
+Print = PrintAction
+Send = SendAction
+
+# IO setup.
 from asyncio import run, gather, sleep
 from zmq import PULL, PUSH
 import zmq.asyncio as zmq
@@ -18,13 +28,14 @@ async def run_agent(name, port, func):
 
     print(f"-{name}-  Starting agent")
     async for action in func(inbox):
-        if action != None:
+        if isinstance(action, SendAction):
             print(f"-{name}-  Executing send action")
-            send_port, message = action
             print(f"-{name}-  Connecting to other agent...")
-            outbox = await connect_agent(send_port)
+            outbox = await connect_agent(action.to)
             print(f"-{name}-  Sending message")
-            await outbox.send(message)
+            await outbox.send(action.message)
+        elif isinstance(action, PrintAction):
+            print(f"-{name}-  {action.text}")
     print(f"-{name}-  Agent finished")
 
 async def connect_agent(port):
@@ -33,30 +44,28 @@ async def connect_agent(port):
     return outbox
 
 async def sender(inbox):
-    print("-S-  Started")
+    yield Print("Started")
     
     await sleep(1)
 
-    print("-S-  Sending message")
-    yield (receiver_port, b"Hello")
+    yield Print("Sending message")
+    yield Send(receiver_port, b"Hello")
 
-    print("-S-  Done")
-    yield
+    yield Print("Done")
 
 async def receiver(inbox):
-    print("-R-  Started")
+    yield Print("Started")
 
-    print("-R-  Waiting for message")
+    yield Print("Waiting for message")
     message = await inbox.recv()
-    print("-R-  Received message: %s" % message)
+    yield Print(f"Received message: {message}")
 
-    print("-R-  Done")
-    yield
+    yield Print("Done")
 
 async def main():
     await gather(
-        run_agent("R", receiver_port, receiver),
-        run_agent("S", sender_port, sender)
+        run_agent("Rick", receiver_port, receiver),
+        run_agent("Sally", sender_port, sender)
     )
 
 run(main())
