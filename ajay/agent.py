@@ -9,6 +9,7 @@ from zmq import PULL, PUSH
 import zmq.asyncio as zmq
 
 from .actions import PrintAction, SendAction
+from .utils import eprint
 
 context = zmq.Context()
 
@@ -22,22 +23,22 @@ async def connect_agent(port):
     return outbox
 
 async def run_agent(name, port, func, **kwargs):
-    print(f"-{name}-  Creating socket on {port}")
+    eprint(f"-{name}-  Creating socket on {port}")
     inbox = context.socket(PULL)
     inbox.bind(f"tcp://*:{port}")
 
-    print(f"-{name}-  Starting agent")
+    eprint(f"-{name}-  Starting agent")
     actions = func(receive_messages(inbox), **kwargs)
     async for act in actions:
         if isinstance(act, SendAction):
-            print(f"-{name}-  Executing send action")
-            print(f"-{name}-  Connecting to agent at {act.to}...")
+            eprint(f"-{name}-  Executing send action")
+            eprint(f"-{name}-  Connecting to agent at {act.to}...")
             outbox = await connect_agent(act.to)
-            print(f"-{name}-  Sending message")
+            eprint(f"-{name}-  Sending message")
             await outbox.send(act.message)
             outbox.close()
         elif isinstance(act, PrintAction):
             print(f"-{name}-  {act.text}")
     
     inbox.close()
-    print(f"-{name}-  Agent finished")
+    eprint(f"-{name}-  Agent finished")
