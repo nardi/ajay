@@ -1,7 +1,8 @@
 from .context import ajay
 import pytest
 
-from ajay import run_agent, PrintAction as print, SendAction as send
+from ajay import run_agent
+from ajay.actions import Print as print, Send as send
 
 from asyncio import gather, sleep
 

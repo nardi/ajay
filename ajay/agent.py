@@ -1,19 +1,14 @@
+### Kind of messy fix on Windows. 
+# TODO: better place to put this?
 import sys, asyncio
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+###
 
-# Action types.
-from collections import namedtuple
-
-PrintAction = namedtuple("PrintAction", ["text"])
-SendAction = namedtuple("SendAction", ["to", "message"])
-
-Print = PrintAction
-Send = SendAction
-
-# IO setup.
 from zmq import PULL, PUSH
 import zmq.asyncio as zmq
+
+from .actions import PrintAction, SendAction
 
 context = zmq.Context()
 
