@@ -1,31 +1,29 @@
 from .context import ajay
 import pytest
 
-from ajay import run_agent
-from ajay import PrintAction as Print
-from ajay import SendAction as Send
+from ajay import run_agent, PrintAction as print, SendAction as send
 
 from asyncio import run, gather, sleep
 
 async def receiver(inbox):
-    yield Print("Started")
+    yield print("Started")
 
-    yield Print("Waiting for message")
+    yield print("Waiting for message")
     message = await inbox.recv()
-    yield Print(f"Received message: {message}")
+    yield print(f"Received message: {message}")
     assert message == b"Hello"
 
-    yield Print("Done")
+    yield print("Done")
 
 async def sender(inbox, receiver_port):
-    yield Print("Started")
+    yield print("Started")
     
     await sleep(1)
 
-    yield Print("Sending message")
-    yield Send(receiver_port, b"Hello")
+    yield print("Sending message")
+    yield send(receiver_port, b"Hello")
 
-    yield Print("Done")
+    yield print("Done")
 
 @pytest.mark.asyncio
 async def test_agent_message(unused_tcp_port_factory):
