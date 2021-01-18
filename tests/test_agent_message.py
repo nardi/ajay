@@ -1,5 +1,11 @@
 from .context import ajay
-import pytest
+import pytest, asyncio
+
+@pytest.fixture()
+def event_loop():
+    loop = asyncio.SelectorEventLoop()
+    yield loop
+    loop.close()
 
 from ajay import run_agent
 from ajay.actions import Print as print, Send as send
