@@ -7,15 +7,19 @@ if sys.platform == 'win32':
 
 from zmq import PULL, PUSH
 import zmq.asyncio as zmq
+# TODO: change to more appropriate serialization.
+# Using dumps and loads.
+import pickle as serialize
 
 from .actions import PrintAction, SendAction
+from .percepts import MessagePercept
 from .utils import eprint
 
 context = zmq.Context()
 
 async def receive_messages(socket):
     while not socket.closed:
-        yield await socket.recv()
+        yield serialize.loads(await socket.recv())
 
 async def connect_agent(port):
     outbox = context.socket(PUSH)
@@ -35,7 +39,8 @@ async def run_agent(name, port, func, **kwargs):
             eprint(f"-{name}-  Connecting to agent at {act.to}...")
             outbox = await connect_agent(act.to)
             eprint(f"-{name}-  Sending message")
-            await outbox.send(act.message)
+            message = MessagePercept(port, act.content)
+            await outbox.send(serialize.dumps(message))
             outbox.close()
         elif isinstance(act, PrintAction):
             print(f"-{name}-  {act.text}")

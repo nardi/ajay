@@ -3,16 +3,19 @@ import pytest
 
 from ajay import run_agent
 from ajay.actions import Print as print, Send as send
+from ajay.percepts import MessagePercept
 
 from asyncio import gather, sleep
 
-async def receiver(inbox):
+async def receiver(inbox, sender_port):
     yield print("Started")
 
     yield print("Waiting for message")
     async for message in inbox:
         yield print(f"Received message: {message}")
-        assert message == b"Hello"
+        assert isinstance(message, MessagePercept)
+        assert message.sender == sender_port
+        assert message.content == b"Hello"
         break
 
     yield print("Done")
@@ -33,6 +36,6 @@ async def test_agent_message(unused_tcp_port_factory):
     sender_port = unused_tcp_port_factory()
     
     await gather(
-        run_agent("Rick", receiver_port, receiver),
+        run_agent("Rick", receiver_port, receiver, sender_port=sender_port),
         run_agent("Sally", sender_port, sender, receiver_port=receiver_port)
     )
