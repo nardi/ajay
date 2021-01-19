@@ -5,3 +5,5 @@ percepts_context = ContextVar('percepts')
 
 MessagePercept = namedtuple("MessagePercept", ["sender", "content"])
 ReadPercept = namedtuple("ReadPercept", ["path", "content"])
+
+ResultPercept = namedtuple("ResultPercept", ["result"])

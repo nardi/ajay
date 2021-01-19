@@ -14,13 +14,15 @@ import zmq.asyncio as zmq
 # TODO: change to more appropriate serialization.
 # Using dumps and loads.
 import pickle as serialize
-from collections.abc import AsyncGenerator
+from collections.abc import Coroutine
 from asyncio import Queue as AsyncQueue
 import aioreactive as rx
 
 from .actions import PrintAction, SendAction, ReadAction
-from .percepts import MessagePercept, ReadPercept
-from .utils import eprint
+from .percepts import MessagePercept, ReadPercept, ResultPercept
+from .utils import eprint, anext
+
+from .actions import GenericAction, wrap_coroutine
 
 from .actions import act_context
 from .percepts import percepts_context
@@ -64,11 +66,23 @@ async def run_agent(name, port, func, **kwargs):
                 contents = f.read()
                 percept = ReadPercept(act.path, contents)
                 await internal_percepts.put(percept)
+        elif isinstance(act, GenericAction):
+            percept = ResultPercept(await act.coroutine)
+            await internal_percepts.put(percept)
     action_obs = rx.AsyncAnonymousObserver(process_action)
 
     actions = rx.AsyncSingleSubject()
     async def act(action):
-        await actions.asend(action)
+        if isinstance(action, Coroutine):
+            # If action is a coroutine, wrap it as
+            # a GenericAction and retrieve its result
+            # as the first percept.
+            genact = wrap_coroutine(action)
+            await actions.asend(genact)
+            percept = await anext(percepts)
+            return percept.result
+        else:
+            await actions.asend(action)
     
     percepts_context.set(percepts)
     act_context.set(act)

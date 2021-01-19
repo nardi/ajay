@@ -7,6 +7,14 @@ PrintAction = namedtuple("PrintAction", ["text"])
 SendAction = namedtuple("SendAction", ["to", "content"])
 ReadAction = namedtuple("ReadAction", ["path"])
 
+GenericAction = namedtuple("GenericAction", ["name", "args", "coroutine"])
+
+def wrap_coroutine(cr):
+    """ Wraps a coroutine as a GenericAction. """
+    name = cr.__qualname__
+    args = cr.cr_frame.f_locals
+    return GenericAction(name, args, cr)
+
 Print = PrintAction
 Send = SendAction
 
