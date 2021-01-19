@@ -18,8 +18,8 @@ from collections.abc import Coroutine
 from asyncio import Queue as AsyncQueue
 import aioreactive as rx
 
-from .actions import PrintAction, SendAction, ReadAction
-from .percepts import MessagePercept, ReadPercept, ResultPercept
+from .actions import PrintAction, SendAction
+from .percepts import MessagePercept, ResultPercept
 from .utils import eprint, anext
 
 from .actions import GenericAction, wrap_coroutine
@@ -61,11 +61,6 @@ async def run_agent(name, port, func, **kwargs):
             outbox.close()
         elif isinstance(act, PrintAction):
             print(f"-{name}-  {act.text}")
-        elif isinstance(act, ReadAction):
-            with open(act.path, "r") as f:
-                contents = f.read()
-                percept = ReadPercept(act.path, contents)
-                await internal_percepts.put(percept)
         elif isinstance(act, GenericAction):
             percept = ResultPercept(await act.coroutine)
             await internal_percepts.put(percept)

@@ -5,7 +5,6 @@ act_context = ContextVar('act')
 
 PrintAction = namedtuple("PrintAction", ["text"])
 SendAction = namedtuple("SendAction", ["to", "content"])
-ReadAction = namedtuple("ReadAction", ["path"])
 
 GenericAction = namedtuple("GenericAction", ["name", "args", "coroutine"])
 
