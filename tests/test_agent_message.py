@@ -22,6 +22,8 @@ async def receiver(inbox, act, sender_addr):
         assert isinstance(message, MessagePercept)
         assert message.sender == sender_addr
         assert message.content == b"Hello"
+        await print("Sending reply")
+        await send(sender_addr, b"World")
         break
 
     await print("Done")
@@ -31,6 +33,14 @@ async def sender(inbox, act, receiver_addr):
 
     await print("Sending message")
     await send(receiver_addr, b"Hello")
+
+    await print("Waiting for reply")
+    async for message in inbox:
+        await print(f"Received message: {message}")
+        assert isinstance(message, MessagePercept)
+        assert message.sender == receiver_addr
+        assert message.content == b"World"
+        break
 
     await print("Done")
 

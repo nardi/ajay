@@ -36,7 +36,7 @@ def own_address(port):
     # TODO: figure out how to find this when sending over the network.
     return local_address(port)
 
-async def produce_percepts(socket, internal_percepts):
+async def produce_percepts(socket, internal_percepts, port):
     while not internal_percepts.empty() or not socket.closed:
         while not internal_percepts.empty():
             yield await internal_percepts.get()
@@ -55,7 +55,7 @@ async def run_agent(name, port, func, **kwargs):
 
     eprint(f"-{name}-  Starting agent")
     internal_percepts = AsyncQueue()
-    percepts = produce_percepts(inbox, internal_percepts)
+    percepts = produce_percepts(inbox, internal_percepts, port)
 
     async def process_action(act):
         if isinstance(act, SendAction):
