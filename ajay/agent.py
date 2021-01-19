@@ -15,17 +15,22 @@ import zmq.asyncio as zmq
 # Using dumps and loads.
 import pickle as serialize
 from collections.abc import AsyncGenerator
+from asyncio import Queue as AsyncQueue
+import aioreactive as rx
 
 from .actions import PrintAction, SendAction, ReadAction
 from .percepts import MessagePercept, ReadPercept
 from .utils import eprint
 
+from .actions import act_context
+from .percepts import percepts_context
+
 context = zmq.Context()
 
 async def produce_percepts(socket, internal_percepts):
-    while len(internal_percepts) > 0 or not socket.closed:
-        for p in internal_percepts:
-            yield p
+    while not internal_percepts.empty() or not socket.closed:
+        while not internal_percepts.empty():
+            yield await internal_percepts.get()
         external_percept = serialize.loads(await socket.recv())
         yield external_percept
 
@@ -34,25 +39,14 @@ async def connect_agent(port):
     outbox.connect(f"tcp://localhost:{port}")
     return outbox
 
-### TODO: maybe rewrite whole thing using aioreactive instead of async generators?
-
-class GeneratorWrapper:
-    def __init__(self, gen):
-        self.gen = gen
-
-    def __aiter__(self):
-        self.value = yield from self.gen
-
 async def run_agent(name, port, func, **kwargs):
     eprint(f"-{name}-  Creating socket on {port}")
     inbox = context.socket(PULL)
     inbox.bind(f"tcp://*:{port}")
 
     eprint(f"-{name}-  Starting agent")
-    ## TODO: find better way to manage and merge internal + external percepts.
-    ## (use aioreactive?)
-    internal_percepts = []
-    perceptual_loop = produce_percepts(inbox, internal_percepts)
+    internal_percepts = AsyncQueue()
+    percepts = produce_percepts(inbox, internal_percepts)
 
     async def process_action(act):
         if isinstance(act, SendAction):
@@ -69,16 +63,18 @@ async def run_agent(name, port, func, **kwargs):
             with open(act.path, "r") as f:
                 contents = f.read()
                 percept = ReadPercept(act.path, contents)
-                internal_percepts.append(percept)
+                await internal_percepts.put(percept)
+    action_obs = rx.AsyncAnonymousObserver(process_action)
 
-    actions = func(perceptual_loop, **kwargs)
-    async for act in actions:
-        # Handle nested generators (TODO: not necessary after switch to streams)
-        if isinstance(act, AsyncGenerator):
-            gen = GeneratorWrapper(act)
-            for act in gen:
-                process_action(act)
-            act = await actions.asend(gen.value)
-        process_action(act)
+    actions = rx.AsyncSingleSubject()
+    async def act(action):
+        await actions.asend(action)
+    
+    percepts_context.set(percepts)
+    act_context.set(act)
+
+    async with await actions.subscribe_async(action_obs):
+        await func(percepts, act, **kwargs)
+
     inbox.close()
     eprint(f"-{name}-  Agent finished")

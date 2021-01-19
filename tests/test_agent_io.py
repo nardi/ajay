@@ -8,28 +8,29 @@ def event_loop():
     loop.close()
 
 from ajay import run_agent
-from ajay.actions import ReadAction
-from ajay.percepts import ReadPercept
+from ajay.actions import print, send, ReadAction, act_context
+from ajay.percepts import ReadPercept, percepts_context
+from ajay.utils import anext
 
 import os
 
-async def load_file(percepts, file_path):
-    yield ReadAction(file_path)
-    percept = await percepts.__anext__()
+async def load_file(file_path):
+    await act_context.get()(ReadAction(file_path))
+    percept = await anext(percepts_context.get())
     assert isinstance(percept, ReadPercept)
     assert percept.path == file_path
     return percept.content
 
-async def agent(percepts, file_path):
-    yield print("Started")
+async def agent(percepts, act, file_path):
+    await print("Started")
 
-    yield print(f"Loading file {file_path}")
-    content = yield load_file(file_path)
+    await print(f"Loading file {file_path}")
+    content = await load_file(file_path)
 
-    yield print(f"Contents: '{content}'")
+    await print(f"Contents: '{content}'")
     assert content == "I am loaded!"
 
-    yield print("Done")
+    await print("Done")
 
 @pytest.mark.asyncio
 async def test_agent_io(unused_tcp_port_factory):

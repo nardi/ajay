@@ -8,33 +8,31 @@ def event_loop():
     loop.close()
 
 from ajay import run_agent
-from ajay.actions import Print as print, Send as send
+from ajay.actions import print, send
 from ajay.percepts import MessagePercept
 
-from asyncio import gather, sleep
+from asyncio import gather
 
-async def receiver(inbox, sender_port):
-    yield print("Started")
+async def receiver(inbox, act, sender_port):
+    await print("Started")
 
-    yield print("Waiting for message")
+    await print("Waiting for message")
     async for message in inbox:
-        yield print(f"Received message: {message}")
+        await print(f"Received message: {message}")
         assert isinstance(message, MessagePercept)
         assert message.sender == sender_port
         assert message.content == b"Hello"
         break
 
-    yield print("Done")
+    await print("Done")
 
-async def sender(inbox, receiver_port):
-    yield print("Started")
-    
-    await sleep(1)
+async def sender(inbox, act, receiver_port):
+    await print("Started")
 
-    yield print("Sending message")
-    yield send(receiver_port, b"Hello")
+    await print("Sending message")
+    await send(receiver_port, b"Hello")
 
-    yield print("Done")
+    await print("Done")
 
 @pytest.mark.asyncio
 async def test_agent_message(unused_tcp_port_factory):
