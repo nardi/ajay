@@ -29,6 +29,13 @@ from .percepts import percepts_context
 
 context = zmq.Context()
 
+def local_address(port):
+    return f"tcp://localhost:{port}"
+
+def own_address(port):
+    # TODO: figure out how to find this when sending over the network.
+    return local_address(port)
+
 async def produce_percepts(socket, internal_percepts):
     while not internal_percepts.empty() or not socket.closed:
         while not internal_percepts.empty():
@@ -36,9 +43,9 @@ async def produce_percepts(socket, internal_percepts):
         external_percept = serialize.loads(await socket.recv())
         yield external_percept
 
-async def connect_agent(port):
+async def connect_agent(addr):
     outbox = context.socket(PUSH)
-    outbox.connect(f"tcp://localhost:{port}")
+    outbox.connect(addr)
     return outbox
 
 async def run_agent(name, port, func, **kwargs):
@@ -56,7 +63,7 @@ async def run_agent(name, port, func, **kwargs):
             eprint(f"-{name}-  Connecting to agent at {act.to}...")
             outbox = await connect_agent(act.to)
             eprint(f"-{name}-  Sending message")
-            message = MessagePercept(port, act.content)
+            message = MessagePercept(own_address(port), act.content)
             await outbox.send(serialize.dumps(message))
             outbox.close()
         elif isinstance(act, PrintAction):
