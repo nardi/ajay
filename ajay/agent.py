@@ -15,13 +15,13 @@ import zmq.asyncio as zmq
 # Using dumps and loads.
 import pickle as serialize
 from collections.abc import Coroutine
-from asyncio import get_running_loop, Queue as AsyncQueue
+from asyncio import get_running_loop, sleep, Queue as AsyncQueue
 import aioreactive as rx
-from asyncstdlib.itertools import tee
+from contextvars import ContextVar
 
 from .actions import PrintAction, SendAction
 from .percepts import MessagePercept, ResultPercept
-from .utils import eprint, anext
+from .utils import eprint, anext, aiter
 
 from .actions import GenericAction, wrap_coroutine
 
@@ -30,6 +30,8 @@ from .percepts import percepts_context
 
 context = zmq.Context()
 
+start_time = ContextVar("start_time")
+
 def local_address(port):
     return f"tcp://localhost:{port}"
 
@@ -37,9 +39,13 @@ def own_address(port):
     # TODO: figure out how to find this when sending over the network.
     return local_address(port)
 
-async def log_item(item, log):
+async def loop_time():
     loop = get_running_loop()
-    log.append((loop.time(), item))
+    return loop.time()
+
+async def log_item(item, log):
+    time = await loop_time() - start_time.get()
+    log.append((time, item))
 
 async def log_iterator(it, log):
     async for item in it:
@@ -103,11 +109,54 @@ async def run_agent(name, port, func, **kwargs):
     act_context.set(act)
 
     async with await actions.subscribe_async(action_obs):
+        start_time.set(await loop_time())
         await func(percepts, act, **kwargs)
 
     inbox.close()
     eprint(f"-{name}-  Agent finished.")
     eprint(f"-{name}-  Percepts received: \n  {percept_log}")
     eprint(f"-{name}-  Actions performed: \n  {action_log}")
+
+    return (percept_log, action_log)
+
+async def replay_log(log):
+    async for time, item in aiter(log):
+        current_time = await loop_time() - start_time.get()
+        await sleep(time - current_time)
+        yield item
+
+async def replay_agent(name, percept_log, func, **kwargs):
+    eprint(f"-{name}-  Starting agent")
+
+    percepts = replay_log(percept_log)
+
+    action_log = []
+    async def process_action(act):
+        await log_item(act, action_log)
+    action_obs = rx.AsyncAnonymousObserver(process_action)
+
+    actions = rx.AsyncSingleSubject()
+    async def act(action):
+        if isinstance(action, Coroutine):
+            # If action is a coroutine, wrap it as
+            # a GenericAction and retrieve its result
+            # as the first percept.
+            genact = wrap_coroutine(action)
+            await actions.asend(genact)
+            percept = await anext(percepts)
+            return percept.result
+        else:
+            await actions.asend(action)
+    
+    percepts_context.set(percepts)
+    act_context.set(act)
+
+    async with await actions.subscribe_async(action_obs):
+        start_time.set(await loop_time())
+        await func(percepts, act, **kwargs)
+
+    eprint(f"-{name}-  Agent finished.")
+    eprint(f"-{name}-  Percepts received: \n  {percept_log}")
+    eprint(f"-{name}-  Actions 'performed': \n  {action_log}")
 
     return (percept_log, action_log)
