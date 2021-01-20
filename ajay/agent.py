@@ -37,10 +37,13 @@ def own_address(port):
     # TODO: figure out how to find this when sending over the network.
     return local_address(port)
 
+async def log_item(item, log):
+    loop = get_running_loop()
+    log.append((loop.time(), item))
+
 async def log_iterator(it, log):
     async for item in it:
-        loop = get_running_loop()
-        log.append((loop.time(), item))
+        await log_item(item, log)
         yield item
 
 async def produce_percepts(socket, internal_percepts, port):
@@ -65,7 +68,9 @@ async def run_agent(name, port, func, **kwargs):
     percept_log = []
     percepts = log_iterator(produce_percepts(inbox, internal_percepts, port), percept_log)
 
+    action_log = []
     async def process_action(act):
+        await log_item(act, action_log)
         if isinstance(act, SendAction):
             eprint(f"-{name}-  Executing send action")
             eprint(f"-{name}-  Connecting to agent at {act.to}...")
@@ -101,4 +106,8 @@ async def run_agent(name, port, func, **kwargs):
         await func(percepts, act, **kwargs)
 
     inbox.close()
-    eprint(f"-{name}-  Agent finished. Percepts received: \n{percept_log}")
+    eprint(f"-{name}-  Agent finished.")
+    eprint(f"-{name}-  Percepts received: \n  {percept_log}")
+    eprint(f"-{name}-  Actions performed: \n  {action_log}")
+
+    return (percept_log, action_log)
