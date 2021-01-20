@@ -1,5 +1,6 @@
 from .context import ajay
 import pytest, asyncio
+from aioreactive.testing import VirtualTimeEventLoop
 
 @pytest.fixture()
 def event_loop():
@@ -62,6 +63,9 @@ async def test_agent_message(unused_tcp_port_factory):
     )
 
     await sleep(1)
+
+    # TODO: figure out how to run the replay on the virtual time event loop.
+    test_loop = VirtualTimeEventLoop()
 
     await replay_agent("S_l_y", percept_log, sender,
         receiver_addr=local_address(receiver_port))
