@@ -15,8 +15,9 @@ import zmq.asyncio as zmq
 # Using dumps and loads.
 import pickle as serialize
 from collections.abc import Coroutine
-from asyncio import Queue as AsyncQueue
+from asyncio import get_running_loop, Queue as AsyncQueue
 import aioreactive as rx
+from asyncstdlib.itertools import tee
 
 from .actions import PrintAction, SendAction
 from .percepts import MessagePercept, ResultPercept
@@ -35,6 +36,12 @@ def local_address(port):
 def own_address(port):
     # TODO: figure out how to find this when sending over the network.
     return local_address(port)
+
+async def log_iterator(it, log):
+    async for item in it:
+        loop = get_running_loop()
+        log.append((loop.time(), item))
+        yield item
 
 async def produce_percepts(socket, internal_percepts, port):
     while not internal_percepts.empty() or not socket.closed:
@@ -55,7 +62,8 @@ async def run_agent(name, port, func, **kwargs):
 
     eprint(f"-{name}-  Starting agent")
     internal_percepts = AsyncQueue()
-    percepts = produce_percepts(inbox, internal_percepts, port)
+    percept_log = []
+    percepts = log_iterator(produce_percepts(inbox, internal_percepts, port), percept_log)
 
     async def process_action(act):
         if isinstance(act, SendAction):
@@ -93,4 +101,4 @@ async def run_agent(name, port, func, **kwargs):
         await func(percepts, act, **kwargs)
 
     inbox.close()
-    eprint(f"-{name}-  Agent finished")
+    eprint(f"-{name}-  Agent finished. Percepts received: \n{percept_log}")
