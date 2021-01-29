@@ -1,0 +1,75 @@
+?acl_communicative_act   : message
+message                 : "(" message_type message_parameter* ")"
+message_type            : "accept-proposal" -> accept_proposal
+                        | "agree" -> agree
+                        | "cancel" -> cancel
+                        | "cfp" -> cfp
+                        | "confirm" -> confirm
+                        | "disconfirm" -> disconfirm
+                        | "failure" -> failure
+                        | "inform" -> inform
+                        | "not-understood" -> not_understood
+                        | "propose" -> propose
+                        | "query-if" -> query_if
+                        | "query-ref" -> query_ref
+                        | "refuse" -> refuse
+                        | "reject-proposal" -> reject_proposal
+                        | "request" -> request
+                        | "request-when" -> request_when
+                        | "request-whenever" -> request_whenever
+                        | "subscribe" -> subscribe
+                        | "inform-if" -> inform_if
+                        | "proxy" -> proxy
+                        | "propagate" -> propagate
+message_parameter       : ":sender" agent_identifier        -> sender
+                        | ":receiver" agent_identifier_set  -> receiver
+                        | ":content" STRING                 -> content
+                        | ":reply-with" expression          -> reply_with
+                        | ":reply-by" datetime              -> reply_by
+                        | ":in-reply-to" expression         -> in_reply_to
+                        | ":reply-to" agent_identifier_set  -> reply_to
+                        | ":language" expression            -> language
+                        | ":encoding" expression            -> encoding
+                        | ":ontology" expression            -> ontology
+                        | ":protocol" WORD                  -> protocol
+                        | ":conversation-id" expression     -> conversation_id
+                        | user_defined_parameter expression
+?user_defined_parameter : WORD
+?expression             : WORD
+                        | STRING
+                        | NUMBER
+                        | datetime
+                        | "(" expression* ")"
+agent_identifier       : "(" "agent-identifier" ":name" WORD [ ":addresses" url_sequence ] [ ":resolvers" agent_identifier_sequence ] ( user_defined_parameter expression )* ")"
+
+agent_identifier_sequence : "(" "sequence" agent_identifier* ")"
+
+agent_identifier_set      : "(" "set" agent_identifier* ")"
+
+url_sequence              : "(" "sequence" url* ")"
+
+?datetime                 : DATETIMETOKEN
+
+url                       : WORD
+// %import .rfc_2396.uri -> url
+
+%import common.ESCAPED_STRING -> STRING
+%import common.SIGNED_NUMBER  -> NUMBER
+%import common.DIGIT          -> DIGIT
+%import common.LETTER         -> ALPHACHARACTER
+
+WORD                    : /[^\x00-\x20()#0-9-@][^\x00-\x20()]*/
+
+DATETIMETOKEN           : SIGN? YEAR MONTH DAY "T" HOUR MINUTE SECOND MILLISECOND ( TYPEDESIGNATOR? )
+YEAR                    : DIGIT DIGIT DIGIT DIGIT
+MONTH                   : DIGIT DIGIT
+DAY                     : DIGIT DIGIT
+HOUR                    : DIGIT DIGIT
+MINUTE                  : DIGIT DIGIT
+SECOND                  : DIGIT DIGIT
+MILLISECOND             : DIGIT DIGIT DIGIT
+TYPEDESIGNATOR          : ALPHACHARACTER
+SIGN                    : ["+"|"-"]
+
+%import common.WS
+%ignore WS

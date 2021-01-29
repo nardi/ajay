@@ -28,9 +28,13 @@ from .actions import GenericAction, wrap_coroutine
 from .actions import act_context
 from .percepts import percepts_context
 
+from .fipa_acl import AgentIdentifier
+
 context = zmq.Context()
 
 start_time = ContextVar("start_time")
+
+current_agent = ContextVar("current_agent")
 
 def local_address(port):
     return f"tcp://localhost:{port}"
@@ -65,6 +69,9 @@ async def connect_agent(addr):
     return outbox
 
 async def run_agent(name, port, func, **kwargs):
+    identifier = AgentIdentifier(name, own_address(port))
+    current_agent.set(identifier)
+
     eprint(f"-{name}-  Creating socket on {port}")
     inbox = context.socket(PULL)
     inbox.bind(f"tcp://*:{port}")
