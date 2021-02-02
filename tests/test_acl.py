@@ -22,7 +22,8 @@ in_msg = """(inform
 def test_acl_parsing_writing():
     parsed_msg = parse_message(in_msg)
     out_msg = parsed_msg.to_acl_string()
-    print(out_msg)
+    reparse_msg = parse_message(out_msg)
+    print(reparse_msg.to_acl_string())
 
     # assert remove_whitespace(out_msg) == remove_whitespace(in_msg)
     # TODO: Can't assert easily because grammar produces messages which are semantically equivalent but not literally.

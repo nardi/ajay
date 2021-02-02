@@ -19,7 +19,10 @@ class ACLCommunicativeAct:
     def to_acl_string(self):
         tree = python_parser.parse(repr(self))
         tokens = string_writer.reconstruct_token_list(tree)
-        return collapse_spaces(' '.join(tokens))
+        msg = collapse_spaces(' '.join(tokens))
+        # TODO: quote fix. A bit hacky, better if fixable in grammar.
+        msg = msg.replace("'", '"')
+        return msg
 
 @dataclass(frozen=True)
 class AgentIdentifier:
