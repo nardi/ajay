@@ -1,0 +1,79 @@
+?acl_communicative_act   : message
+message                 : "ACLCommunicativeAct(" "type" "=" "'" message_type "'" "," "parameters" "=" "immutabledict(" "{" ( message_parameter ",")* message_parameter? "}" ")" ")"
+message_type            : "accept_proposal" -> accept_proposal
+                        | "agree" -> agree
+                        | "cancel" -> cancel
+                        | "cfp" -> cfp
+                        | "confirm" -> confirm
+                        | "disconfirm" -> disconfirm
+                        | "failure" -> failure
+                        | "inform" -> inform
+                        | "not_understood" -> not_understood
+                        | "propose" -> propose
+                        | "query_if" -> query_if
+                        | "query_ref" -> query_ref
+                        | "refuse" -> refuse
+                        | "reject_proposal" -> reject_proposal
+                        | "request" -> request
+                        | "request_when" -> request_when
+                        | "request_whenever" -> request_whenever
+                        | "subscribe" -> subscribe
+                        | "inform_if" -> inform_if
+                        | "proxy" -> proxy
+                        | "propagate" -> propagate
+message_parameter       : "'sender'" ":" agent_identifier        -> sender
+                        | "'receiver'" ":" agent_identifier_set  -> receiver
+                        | "'content'" ":" STRING                 -> content
+                        | "'reply_with'" ":" expression          -> reply_with
+                        | "'reply_by'" ":" datetime              -> reply_by
+                        | "'in_reply_to'" ":" expression         -> in_reply_to
+                        | "'reply_to'" ":" agent_identifier_set  -> reply_to
+                        | "'language'" ":" expression            -> language
+                        | "'encoding'" ":" expression            -> encoding
+                        | "'ontology'" ":" expression            -> ontology
+                        | "'protocol'" ":" WORD                  -> protocol
+                        | "'conversation_id'" ":" expression     -> conversation_id
+                        | user_defined_parameter expression
+?user_defined_parameter : "'" WORD "'"
+?expression             : "'" WORD "'"
+                        | STRING
+                        | NUMBER
+                        | datetime
+                        | "(" (expression ",")* ")"
+agent_identifier       : "AgentIdentifier(" "name" "=" "'" WORD "'" [ "," "addresses" "=" url_sequence ] [ "," "resolvers" "=" agent_identifier_sequence ] "," "parameters" "=" "immutabledict(" "{" ( user_defined_parameter ":" expression "," )* ( user_defined_parameter ":" expression )? "}" ")" ")"
+
+agent_identifier_sequence : "(" (agent_identifier ", ")* ")"
+
+agent_identifier_set      : "{" (agent_identifier ", ")* agent_identifier? "}"
+
+url_sequence              : "(" ("'" url "'" ",")* ")"
+
+?datetime                 : "'" DATETIMETOKEN "'"
+
+url                       : WORD
+// %import .rfc_2396.uri -> url
+
+%import common._STRING_ESC_INNER
+%import common.SIGNED_NUMBER  -> NUMBER
+%import common.DIGIT          -> DIGIT
+%import common.LETTER         -> ALPHACHARACTER
+
+ESCAPED_STRING_DOUBLE   : "\"" _STRING_ESC_INNER "\""
+ESCAPED_STRING_SINGLE   : "'" _STRING_ESC_INNER "'"
+STRING                  : ESCAPED_STRING_DOUBLE | ESCAPED_STRING_SINGLE
+
+WORD                    : /[^\x00-\x20()#0-9-@'][^\x00-\x20()']*/
+
+DATETIMETOKEN           : SIGN? YEAR MONTH DAY "T" HOUR MINUTE SECOND MILLISECOND ( TYPEDESIGNATOR? )
+YEAR                    : DIGIT DIGIT DIGIT DIGIT
+MONTH                   : DIGIT DIGIT
+DAY                     : DIGIT DIGIT
+HOUR                    : DIGIT DIGIT
+MINUTE                  : DIGIT DIGIT
+SECOND                  : DIGIT DIGIT
+MILLISECOND             : DIGIT DIGIT DIGIT
+TYPEDESIGNATOR          : ALPHACHARACTER
+SIGN                    : ["+"|"-"]
+
+%import common.WS
+%ignore WS

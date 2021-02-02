@@ -1,4 +1,4 @@
-from .fipa_acl import AgentIdentifier, parse as parse_message, ACLCommunicativeAct, acl_set
+from .fipa_acl import AgentIdentifier, ACLCommunicativeAct, parse as parse_message
 from .agent import current_agent
 from .utils import force_iterable
 
@@ -29,13 +29,12 @@ message_types = frozenset([
 def create_message(type, receiver, sender=None, **params):
     if not sender:
         sender = current_agent.get()
-    receiver = acl_set(force_iterable(receiver))
-    return ACLCommunicativeAct(
-        type, {
-            "sender": sender,
-            "receiver": receiver,
-            **params
-        }
+    receiver = set(force_iterable(receiver))
+    return ACLCommunicativeAct.new(
+        type,
+        sender=sender,
+        receiver=receiver,
+        **params
     )
 
 def create_message_of_type(type):

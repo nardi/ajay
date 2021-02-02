@@ -1,101 +1,63 @@
-from lark import Lark, Transformer
-from collections import namedtuple
+from lark import Lark
+from lark.reconstruct import Reconstructor as LarkReconstructor, _isalnum
+from dataclasses import dataclass
 from immutabledict import immutabledict
-from decimal import Decimal
-from urllib.parse import urlparse, urlunparse, ParseResult as URLParseResult
-import re
+from .utils import force_iterable, collapse_spaces
 
-from .utils import force_iterable
+@dataclass(frozen=True)
+class ACLCommunicativeAct:
+    type: str
+    parameters: immutabledict = immutabledict()
 
-def false_to_empty_string(val, prepend=""):
-    return "" if not val else f"{prepend}{val}"
-
-WORD_REGEX = r"[^\x00-\x20()#0-9-@][^\x00-\x20()]*"
-
-def str_value(val, maybe_word=True):
-    if isinstance(val, str):
-        if maybe_word and re.search(WORD_REGEX, val):
-            return val
-        else:
-            return f'"{val}"'
-    elif isinstance(val, URLParseResult):
-        return f'{urlunparse(val)}'
-    else:
-        return str(val)
-
-def str_sequence(seq, prepend=""):
-    return f"{prepend} ( sequence {' '.join(map(str_value, seq))} )" if seq else ""
-
-def raise_dashes(s):
-    return s.replace("_", "-")
-
-class ACLCommunicativeAct(namedtuple("ACLCommunicativeAct", ["type", "parameters"])):
-    def __str__(self):
-        newline_if_params = "\n" if self.parameters else ""
-        params = (newline_if_params
-            + "\n".join([f"  :{raise_dashes(p)} {str_value(v, p != 'content')}" for p, v in self.parameters.items()])
-            + newline_if_params)
-
-        return f"( {raise_dashes(self.type)}{params})"
-
-class paramdict(immutabledict):
-    def __str__(self):
-        return " ".join(f"{p} {v}" for p, v in self.items())
-
-class AgentIdentifier(namedtuple("AgentIdentifier", ["name", "addresses", "resolvers", "parameters"])):
-    def __new__(cls, name, addresses=tuple(), resolvers=tuple(), parameters=paramdict()):
-        return super().__new__(cls, name,
-            tuple(force_iterable(addresses)),
-            tuple(force_iterable(resolvers)),
-            paramdict(parameters))
-
-    def __str__(self):
-        addresses = str_sequence(self.addresses, " :addresses")
-        resolvers = str_sequence(self.resolvers, " :resolvers")
-        parameters = false_to_empty_string(self.parameters, " ")
-                
-        return f"( agent-identifier :name {self.name}{addresses}{resolvers}{parameters} )"
-
-class acl_set(set):
-    def __str__(self):
-        return f"( set {' '.join(map(str, self))} )"
-
-def none_to_empty_list(val):
-    return [] if val == None else val
-def none_to_empty_tuple(val):
-    return tuple() if val == None else val
-
-class ACLTransformer(Transformer):
-    STRING = lambda _, t: str(t)[1:-1]
-    WORD    = str
-    NUMBER  = lambda _, t: Decimal(t)
-    DATETIMETOKEN = str
-
-    url     = lambda _, t: urlparse(t[0])
-    url_sequence = tuple
-    agent_identifier_sequence = tuple
-    agent_identifier_set = acl_set
-
-    def agent_identifier(self, tree):
-        name, addresses, resolvers, *user_def = tree
-        
-        user_params = dict(zip(user_def[0::2], user_def[1::2])) if user_def else {}
-
-        return AgentIdentifier(
-            name,
-            none_to_empty_tuple(addresses),
-            none_to_empty_tuple(resolvers),
-            user_params
+    @staticmethod
+    def new(type, **params):
+        return ACLCommunicativeAct(
+            type,
+            immutabledict(params)
         )
 
-    def message(self, tree):
-        msg_type, *params = tree
-        param_dict = dict(map(lambda p: (p.data, p.children[0]), params))
-        return ACLCommunicativeAct(msg_type.data, param_dict)
+    def to_acl_string(self):
+        tree = python_parser.parse(repr(self))
+        tokens = string_writer.reconstruct_token_list(tree)
+        return collapse_spaces(' '.join(tokens))
 
-acl_parser = Lark.open("fipa_acl.lark", rel_to=__file__, start="acl_communicative_act", maybe_placeholders=True)
-acl_transformer = ACLTransformer()
+@dataclass(frozen=True)
+class AgentIdentifier:
+    name: str
+    addresses: tuple = tuple()
+    resolvers: tuple = tuple()
+    parameters: immutabledict = immutabledict()
+
+    @staticmethod
+    def new(name, addresses=tuple(), resolvers=tuple(), **params):
+        return AgentIdentifier(
+            name,
+            tuple(force_iterable(addresses)),
+            tuple(force_iterable(resolvers)),
+            immutabledict(params)
+        )
+
+class Reconstructor(LarkReconstructor):
+    # Same code as reconstruct, but return y instead of ''.join(y)
+    def reconstruct_token_list(self, tree, postproc=None):
+        x = self._reconstruct(tree)
+        if postproc:
+            x = postproc(x)
+        y = []
+        prev_item = ''
+        for item in x:
+            if prev_item and item and _isalnum(prev_item[-1]) and _isalnum(item[0]):
+                y.append(' ')
+            y.append(item)
+            prev_item = item
+        return y
+
+string_parser = Lark.open("grammars/fipa_acl.lark", rel_to=__file__, start="acl_communicative_act")
+string_writer = Reconstructor(string_parser)
+python_parser = Lark.open("grammars/fipa_acl_py.lark", rel_to=__file__, start="acl_communicative_act")
+python_writer = Reconstructor(python_parser)
 
 def parse(message_str):
-    tree = acl_parser.parse(message_str)
-    return acl_transformer.transform(tree)
+    tree = string_parser.parse(message_str)
+    msg_repr = python_writer.reconstruct(tree)
+    return eval(msg_repr)
